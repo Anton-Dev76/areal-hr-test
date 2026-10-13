@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Учёт сотрудников</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f2f5;
+      color: #222;
+    }
+
+    header {
+      background: #1a73e8;
+      color: white;
+      padding: 16px 32px;
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    .container { padding: 24px 32px; }
+
+    .toolbar {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+      align-items: center;
+    }
+
+    .toolbar input, .toolbar select {
+      padding: 8px 12px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+      outline: none;
+    }
+
+    .toolbar input:focus, .toolbar select:focus {
+      border-color: #1a73e8;
+    }
+
+    .btn {
+      padding: 8px 18px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .btn-primary { background: #1a73e8; color: white; }
+    .btn-primary:hover { background: #1558b0; }
+    .btn-danger { background: #e53935; color: white; }
+    .btn-danger:hover { background: #b71c1c; }
+    .btn-secondary { background: #eee; color: #333; }
+    .btn-secondary:hover { background: #ddd; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+
+    thead { background: #1a73e8; color: white; }
+    th, td { padding: 11px 14px; text-align: left; font-size: 14px; }
+    tbody tr:hover { background: #f5f8ff; }
+    tbody tr:nth-child(even) { background: #fafafa; }
+    tbody tr:nth-child(even):hover { background: #f5f8ff; }
+
+    .fired-row { opacity: 0.6; }
+
+    .badge-fired {
+      background: #e53935;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .actions { display: flex; gap: 6px; }
+
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: white;
+      border-radius: 10px;
+      padding: 28px 32px;
+      width: 560px;
+      max-width: 95vw;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal h2 { margin-bottom: 20px; font-size: 18px; }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    .form-group.full { grid-column: 1 / -1; }
+
+    label { font-size: 13px; color: #555; font-weight: 500; }
+
+    input[type=text], input[type=date], input[type=number], select {
+      padding: 8px 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+      outline: none;
+    }
+
+    input:focus, select:focus { border-color: #1a73e8; }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+
+<header>Учёт сотрудников</header>
+
+<div class="container">
+  <div class="toolbar">
+    <input type="text" id="search" placeholder="Поиск по ФИО..." oninput="loadEmployees()">
+    <select id="filterDept" onchange="loadEmployees()">
+      <option value="">Все отделы</option>
+    </select>
+    <select id="filterPos" onchange="loadEmployees()">
+      <option value="">Все должности</option>
+    </select>
+    <button class="btn btn-primary" onclick="openModal()">+ Добавить сотрудника</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>ФИО</th>
+        <th>Дата рождения</th>
+        <th>Паспорт</th>
+        <th>Телефон</th>
+        <th>Отдел</th>
+        <th>Должность</th>
+        <th>Зарплата</th>
+        <th>Принят</th>
+        <th>Статус</th>
+        <th>Действия</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h2 id="modalTitle">Новый сотрудник</h2>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Фамилия *</label>
+        <input type="text" id="f_last_name">
+      </div>
+      <div class="form-group">
+        <label>Имя *</label>
+        <input type="text" id="f_first_name">
+      </div>
+      <div class="form-group">
+        <label>Отчество</label>
+        <input type="text" id="f_middle_name">
+      </div>
+      <div class="form-group">
+        <label>Дата рождения</label>
+        <input type="date" id="f_birth_date">
+      </div>
+      <div class="form-group">
+        <label>Серия/номер паспорта</label>
+        <input type="text" id="f_passport" placeholder="0000 000000" maxlength="11">
+      </div>
+      <div class="form-group">
+        <label>Телефон</label>
+        <input type="text" id="f_phone" placeholder="+7 (000) 000-00-00" maxlength="18">
+      </div>
+      <div class="form-group full">
+        <label>Адрес проживания</label>
+        <input type="text" id="f_address">
+      </div>
+      <div class="form-group">
+        <label>Отдел *</label>
+        <input type="text" id="f_department">
+      </div>
+      <div class="form-group">
+        <label>Должность *</label>
+        <input type="text" id="f_position">
+      </div>
+      <div class="form-group">
+        <label>Зарплата (₽)</label>
+        <input type="number" id="f_salary" min="0">
+      </div>
+      <div class="form-group">
+        <label>Дата принятия *</label>
+        <input type="date" id="f_hire_date">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal()">Отмена</button>
+      <button class="btn btn-primary" onclick="saveEmployee()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API = 'http://localhost:3000/api';
+  let editingId = null;
+
+  document.getElementById('f_passport').addEventListener('input', function() {
+    let v = this.value.replace(/\D/g, '').slice(0, 10);
+    if (v.length > 4) v = v.slice(0,4) + ' ' + v.slice(4);
+    this.value = v;
+  });
+
+  document.getElementById('f_phone').addEventListener('input', function() {
+    let v = this.value.replace(/\D/g, '');
+    if (v.startsWith('8')) v = '7' + v.slice(1);
+    if (!v.startsWith('7')) v = '7' + v;
+    v = v.slice(0, 11);
+    let r = '+7';
+    if (v.length > 1) r += ' (' + v.slice(1, 4);
+    if (v.length > 4) r += ') ' + v.slice(4, 7);
+    if (v.length > 7) r += '-' + v.slice(7, 9);
+    if (v.length > 9) r += '-' + v.slice(9, 11);
+    this.value = r;
+  });
+
+  async function loadEmployees() {
+    const search = document.getElementById('search').value;
+    const department = document.getElementById('filterDept').value;
+    const position = document.getElementById('filterPos').value;
+
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    if (department) params.set('department', department);
+    if (position) params.set('position', position);
+
+    const res = await fetch(`${API}/employees?${params}`);
+    const employees = await res.json();
+
+    renderTable(employees);
+    updateFilters(employees);
+  }
+
+  function renderTable(employees) {
+    const tbody = document.getElementById('tbody');
+    if (!employees.length) {
+      tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;color:#999">Сотрудники не найдены</td></tr>';
+      return;
+    }
+    tbody.innerHTML = employees.map(e => `
+      <tr class="${e.is_fired ? 'fired-row' : ''}">
+        <td>${e.last_name} ${e.first_name} ${e.middle_name || ''}</td>
+        <td>${formatDate(e.birth_date)}</td>
+        <td>${e.passport || '—'}</td>
+        <td>${e.phone || '—'}</td>
+        <td>${e.department || '—'}</td>
+        <td>${e.position || '—'}</td>
+        <td>${e.salary ? e.salary.toLocaleString('ru') + ' ₽' : '—'}</td>
+        <td>${formatDate(e.hire_date)}</td>
+        <td>${e.is_fired ? '<span class="badge-fired">Уволен</span>' : 'Работает'}</td>
+        <td class="actions">
+          ${!e.is_fired ? `
+            <button class="btn btn-secondary" onclick="editEmployee(${e.id})">✏️</button>
+            <button class="btn btn-danger" onclick="fireEmployee(${e.id})">Уволить</button>
+          ` : ''}
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function formatDate(d) {
+    if (!d) return '—';
+    const [y, m, day] = d.split('-');
+    return `${day}.${m}.${y}`;
+  }
+
+  function updateFilters(employees) {
+    const depts = [...new Set(employees.map(e => e.department).filter(Boolean))];
+    const positions = [...new Set(employees.map(e => e.position).filter(Boolean))];
+
+    const deptSel = document.getElementById('filterDept');
+    const curDept = deptSel.value;
+    deptSel.innerHTML = '<option value="">Все отделы</option>' +
+      depts.map(d => `<option value="${d}" ${d===curDept?'selected':''}>${d}</option>`).join('');
+
+    const posSel = document.getElementById('filterPos');
+    const curPos = posSel.value;
+    posSel.innerHTML = '<option value="">Все должности</option>' +
+      positions.map(p => `<option value="${p}" ${p===curPos?'selected':''}>${p}</option>`).join('');
+  }
+
+  function openModal(emp = null) {
+    editingId = emp ? emp.id : null;
+    document.getElementById('modalTitle').textContent = emp ? 'Редактировать сотрудника' : 'Новый сотрудник';
+
+    const fields = ['last_name','first_name','middle_name','birth_date','passport','phone','address','department','position','salary','hire_date'];
+    fields.forEach(f => {
+      document.getElementById('f_' + f).value = emp ? (emp[f] || '') : '';
+    });
+
+    document.getElementById('modalOverlay').classList.add('open');
+  }
+
+  function closeModal() {
+    document.getElementById('modalOverlay').classList.remove('open');
+    editingId = null;
+  }
+
+  async function editEmployee(id) {
+    const res = await fetch(`${API}/employees`);
+    const all = await res.json();
+    const emp = all.find(e => e.id === id);
+    if (emp) openModal(emp);
+  }
+
+  async function saveEmployee() {
+    const data = {
+      last_name: document.getElementById('f_last_name').value.trim(),
+      first_name: document.getElementById('f_first_name').value.trim(),
+      middle_name: document.getElementById('f_middle_name').value.trim(),
+      birth_date: document.getElementById('f_birth_date').value,
+      passport: document.getElementById('f_passport').value.trim(),
+      phone: document.getElementById('f_phone').value.trim(),
+      address: document.getElementById('f_address').value.trim(),
+      department: document.getElementById('f_department').value.trim(),
+      position: document.getElementById('f_position').value.trim(),
+      salary: parseInt(document.getElementById('f_salary').value) || 0,
+      hire_date: document.getElementById('f_hire_date').value,
+    };
+
+    if (!data.last_name || !data.first_name || !data.department || !data.position || !data.hire_date) {
+      alert('Заполните обязательные поля (*)');
+      return;
+    }
+
+    const url = editingId ? `${API}/employees/${editingId}` : `${API}/employees`;
+    const method = editingId ? 'PUT' : 'POST';
+
+    await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+
+    closeModal();
+    loadEmployees();
+  }
+
+  async function fireEmployee(id) {
+    if (!confirm('Уволить сотрудника? Это действие нельзя отменить.')) return;
+    await fetch(`${API}/employees/${id}/fire`, { method: 'PATCH' });
+    loadEmployees();
+  }
+
+  document.getElementById('modalOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+
+  loadEmployees();
+</script>
+</body>
+</html>
