@@ -1,4 +1,5 @@
 // Подключаем инструменты
+const path = require('path')
 const express = require('express')
 const cors = require('cors')
 const db = require('./database')
@@ -12,7 +13,7 @@ app.use(cors())
 app.use(express.json())
 
 // Отдаём файлы из папки public (наш HTML/CSS)
-app.use(express.static('../public'))
+app.use(express.static(path.join(__dirname, '../public')))
 
 // Маршруты
 
